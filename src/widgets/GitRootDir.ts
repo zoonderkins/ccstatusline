@@ -1,6 +1,7 @@
 import { execSync } from 'child_process';
 
 import type { RenderContext } from '../types/RenderContext';
+import type { Settings } from '../types/Settings';
 import type {
     CustomKeybind,
     Widget,
@@ -8,10 +9,10 @@ import type {
     WidgetItem
 } from '../types/Widget';
 
-export class GitWorktreeWidget implements Widget {
-    getDefaultColor(): string { return 'blue'; }
-    getDescription(): string { return 'Shows the current git worktree name'; }
-    getDisplayName(): string { return 'Git Worktree'; }
+export class GitRootDirWidget implements Widget {
+    getDefaultColor(): string { return 'cyan'; }
+    getDescription(): string { return 'Shows the git repository root directory name'; }
+    getDisplayName(): string { return 'Git Root Dir'; }
     getEditorDisplay(item: WidgetItem): WidgetEditorDisplay {
         const hideNoGit = item.metadata?.hideNoGit === 'true';
         const modifiers: string[] = [];
@@ -40,44 +41,29 @@ export class GitWorktreeWidget implements Widget {
         return null;
     }
 
-    render(item: WidgetItem, context: RenderContext): string | null {
+    render(item: WidgetItem, context: RenderContext, _settings: Settings): string | null {
         const hideNoGit = item.metadata?.hideNoGit === 'true';
 
-        if (context.isPreview)
-            return item.rawValue ? 'main' : '𖠰 main';
+        if (context.isPreview) {
+            return 'my-repo';
+        }
 
-        const worktree = this.getGitWorktree();
-        if (worktree)
-            return item.rawValue ? worktree : `𖠰 ${worktree}`;
+        const rootDir = this.getGitRootDir();
+        if (rootDir) {
+            const dirName = rootDir.split('/').pop() ?? rootDir;
+            return dirName;
+        }
 
-        return hideNoGit ? null : '𖠰 no git';
+        return hideNoGit ? null : 'no git';
     }
 
-    private getGitWorktree(): string | null {
+    private getGitRootDir(): string | null {
         try {
-            const worktreeDir = execSync('git rev-parse --git-dir', {
+            const rootDir = execSync('git rev-parse --show-toplevel', {
                 encoding: 'utf8',
                 stdio: ['pipe', 'pipe', 'ignore']
             }).trim();
-
-            // /some/path/.git or .git (main worktree of regular repo)
-            if (worktreeDir.endsWith('/.git') || worktreeDir === '.git')
-                return 'main';
-
-            // /some/path/.git/worktrees/some-worktree (worktree of regular repo)
-            if (worktreeDir.includes('.git/worktrees/')) {
-                const [, worktree] = worktreeDir.split('.git/worktrees/');
-                return worktree ?? null;
-            }
-
-            // /some/path/worktrees/some-worktree (worktree of bare repo)
-            // Bare repos store worktree metadata at <bare-repo>/worktrees/<name>
-            if (worktreeDir.includes('/worktrees/')) {
-                const [, worktree] = worktreeDir.split('/worktrees/');
-                return worktree ?? null;
-            }
-
-            return null;
+            return rootDir || null;
         } catch {
             return null;
         }

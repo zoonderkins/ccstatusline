@@ -356,6 +356,7 @@ Once configured, ccstatusline automatically formats your Claude Code status line
 - **Session Clock** - Shows elapsed time since session start (e.g., "2hr 15m")
 - **Session Cost** - Shows total session cost in USD (e.g., "$1.23")
 - **Block Timer** - Shows time elapsed in current 5-hour block or progress bar
+- **Task Timer** - Shows real-time task execution time (requires hook installation, e.g., "执行中：1分23秒" or "执行完成：2分45秒")
 - **Current Working Directory** - Shows current working directory with configurable path segments
 - **Version** - Shows Claude Code version
 - **Output Style** - Shows the currently set output style in Claude Code
@@ -432,13 +433,133 @@ The Block Timer widget helps you track your progress through Claude Code's 5-hou
 - Progress bars show completion percentage (e.g., "[████████████████████████░░░░░░░░] 73.9%")
 - Toggle between modes with the **(p)** key in the widgets editor
 
+### ⏱️ Task Timer Widget
+
+The Task Timer widget provides real-time tracking of how long Claude has been working on the current task:
+
+**Installation Required:**
+
+Before using the Task Timer widget, you need to install the required hooks:
+
+1. Run ccstatusline: `npx ccstatusline@latest` or `bunx ccstatusline@latest`
+2. From the main menu, select **"⏱️ Task Timer Setup"**
+3. Press **(i)** to install hooks
+   - This copies `timing_hook.sh` to `~/.claude/hooks/`
+   - Updates your `~/.claude/settings.json` with hook configurations
+   - Adds hooks for: `UserPromptSubmit`, `Stop`, and `SessionEnd`
+
+**Display Modes:**
+- **Executing** - Shows "执行中：1分23秒" while Claude is working
+- **Completed** - Shows "执行完成：2分45秒" after task finishes
+- **Raw Value** - Shows just the time (e.g., "1分23秒") without prefix
+
+**Features:**
+- **Real-time Updates** - Timer updates during task execution (refresh rate depends on Claude Code)
+- **Multi-session Support** - Each Claude Code instance has an independent timer
+- **Automatic Cleanup** - State is cleaned up when sessions end
+- **Smart Formatting** - Time automatically scales:
+  - Less than 60s: "42秒"
+  - 60s to 1hr: "5分30秒"
+  - Over 1hr: "2时15分30秒"
+- **Persistent State** - Timer state survives terminal restarts
+- **Cross-platform** - Works on Linux, macOS, and Windows (requires bash)
+
+**How It Works:**
+
+The Task Timer uses Claude Code hooks to track task execution:
+
+1. **UserPromptSubmit Hook** - Records start time when you submit a prompt
+2. **Stop Hook** - Calculates duration when Claude finishes the task
+3. **SessionEnd Hook** - Cleans up timer state when session ends
+4. **Display Mode** - ccstatusline queries the hook script to get current status
+
+**Uninstalling:**
+
+To remove the Task Timer hooks:
+1. Run ccstatusline and go to **"⏱️ Task Timer Setup"**
+2. Press **(u)** to uninstall
+   - Removes `timing_hook.sh` from `~/.claude/hooks/`
+   - Cleans up hook configurations from `settings.json`
+
+**Troubleshooting:**
+
+- **Timer not showing:** Ensure hooks are installed via Task Timer Setup
+- **Permission errors:** Run `chmod +x ~/.claude/hooks/timing_hook.sh` on Unix systems
+- **Incorrect times:** Clear state with `rm -rf ~/.claude/.timing/*`
+
 ### 🔤 Raw Value Mode
 
 Some widgets support "raw value" mode which displays just the value without a label:
 - Normal: `Model: Claude 3.5 Sonnet` → Raw: `Claude 3.5 Sonnet`
 - Normal: `Session: 2hr 15m` → Raw: `2hr 15m`
 - Normal: `Block: 3hr 45m` → Raw: `3hr 45m`
+- Normal: `执行中：1分23秒` → Raw: `1分23秒`
 - Normal: `Ctx: 18.6k` → Raw: `18.6k`
+
+---
+
+### ⚠️ Context Warning Alerts
+
+Context widgets (Context Length, Context Percentage) feature visual threshold warnings to help you monitor context window usage:
+
+**Visual Indicators:**
+- **Yellow Warning** - Moderate context usage (⚠️ + yellow bold text)
+- **Red Critical** - High context usage (🔴 + red bold text with background)
+
+**Why Context Warnings?**
+- Helps you stay aware of context window consumption
+- Useful for managing long conversations and avoiding auto-compact
+- Thresholds are personal preference - adjust based on your usage patterns
+
+**Configuration:**
+
+Context warnings are enabled by default but fully customizable. Edit your settings file (`~/.config/ccstatusline/settings.json`):
+
+```json
+{
+  "tokenWarnings": {
+    "enabled": true,
+    "warningThreshold": 120000,
+    "criticalThreshold": 140000,
+    "showEmojis": true
+  }
+}
+```
+
+**Options:**
+- `enabled` - Toggle warnings on/off (default: `true`)
+- `warningThreshold` - Token count for yellow warning (default: `120000`)
+- `criticalThreshold` - Token count for red alert (default: `140000`)
+- `showEmojis` - Show emoji indicators (🔴/⚠️) or just colors (default: `true`)
+
+**Setting Your Own Thresholds:**
+
+The defaults (120k/140k) are starting points. Adjust based on your workflow:
+- Short sessions: Lower thresholds (e.g., 80k/100k)
+- Long conversations: Higher thresholds (e.g., 150k/170k)
+- Experiment to find what works for you
+
+**Examples:**
+
+Disable warnings entirely:
+```json
+"tokenWarnings": { "enabled": false }
+```
+
+Earlier warnings for shorter sessions:
+```json
+"tokenWarnings": {
+  "warningThreshold": 80000,
+  "criticalThreshold": 100000
+}
+```
+
+Colors only, no emojis:
+```json
+"tokenWarnings": {
+  "showEmojis": false
+}
+```
 
 ---
 

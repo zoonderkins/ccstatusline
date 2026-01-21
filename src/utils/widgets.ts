@@ -11,7 +11,11 @@ const widgetRegistry = new Map<WidgetItemType, Widget>([
     ['output-style', new widgets.OutputStyleWidget()],
     ['git-branch', new widgets.GitBranchWidget()],
     ['git-changes', new widgets.GitChangesWidget()],
+    ['git-root-dir', new widgets.GitRootDirWidget()],
+    ['git-indicators', new widgets.GitIndicatorsWidget()],
     ['git-worktree', new widgets.GitWorktreeWidget()],
+    ['hg-changes', new widgets.MercurialChangesWidget()],
+    ['hg-branch', new widgets.MercurialBranchWidget()],
     ['current-working-dir', new widgets.CurrentWorkingDirWidget()],
     ['tokens-input', new widgets.TokensInputWidget()],
     ['tokens-output', new widgets.TokensOutputWidget()],
@@ -27,7 +31,8 @@ const widgetRegistry = new Map<WidgetItemType, Widget>([
     ['version', new widgets.VersionWidget()],
     ['custom-text', new widgets.CustomTextWidget()],
     ['custom-command', new widgets.CustomCommandWidget()],
-    ['claude-session-id', new widgets.ClaudeSessionIdWidget()]
+    ['claude-session-id', new widgets.ClaudeSessionIdWidget()],
+    ['task-timer', new widgets.TaskTimerWidget()]
 ]);
 
 export function getWidget(type: WidgetItemType): Widget | null {

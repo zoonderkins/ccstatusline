@@ -6,6 +6,7 @@ import type {
     WidgetItem
 } from '../types/Widget';
 import { formatTokens } from '../utils/renderer';
+import { applyTokenWarning } from '../utils/token-warnings';
 
 export class ContextLengthWidget implements Widget {
     getDefaultColor(): string { return 'brightBlack'; }
@@ -19,7 +20,12 @@ export class ContextLengthWidget implements Widget {
         if (context.isPreview) {
             return item.rawValue ? '18.6k' : 'Ctx: 18.6k';
         } else if (context.tokenMetrics) {
-            return item.rawValue ? formatTokens(context.tokenMetrics.contextLength) : `Ctx: ${formatTokens(context.tokenMetrics.contextLength)}`;
+            const contextLength = context.tokenMetrics.contextLength;
+            const formattedLength = formatTokens(contextLength);
+            const baseText = item.rawValue ? formattedLength : `Ctx: ${formattedLength}`;
+
+            // Apply threshold-based warnings if configured
+            return applyTokenWarning(baseText, contextLength, settings);
         }
         return null;
     }
