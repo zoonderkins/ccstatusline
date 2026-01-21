@@ -133,7 +133,7 @@
 
 ## 🚀 Quick Start
 
-### No installation needed! Use directly with npx or bunx:
+### Option 1: No installation needed! Use directly with npx or bunx:
 
 ```bash
 # Run the configuration TUI with npm
@@ -141,6 +141,35 @@ npx ccstatusline@latest
 
 # Or with Bun (faster)
 bunx ccstatusline@latest
+```
+
+### Option 2: Install from source (for development or custom builds)
+
+```bash
+# Clone the repository
+git clone https://github.com/zoonderkins/ccstatusline.git
+cd ccstatusline
+
+# Install dependencies and build
+bun install
+bun run build
+
+# Create global symlink
+npm link
+
+# Now you can use 'ccstatusline' command globally
+ccstatusline
+```
+
+Then configure Claude Code in `~/.claude/settings.json`:
+```json
+{
+  "statusLine": {
+    "type": "command",
+    "command": "ccstatusline",
+    "padding": 0
+  }
+}
 ```
 
 ### Configure ccstatusline
