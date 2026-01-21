@@ -23,12 +23,17 @@ export class CurrentWorkingDirWidget implements Widget {
     getEditorDisplay(item: WidgetItem): WidgetEditorDisplay {
         const segments = item.metadata?.segments ? parseInt(item.metadata.segments, 10) : undefined;
         const fishStyle = item.metadata?.fishStyle === 'true';
+        const abbreviateHome = item.metadata?.abbreviateHome === 'true';
         const modifiers: string[] = [];
 
         if (fishStyle) {
             modifiers.push('fish-style');
         } else if (segments && segments > 0) {
             modifiers.push(`segments: ${segments}`);
+        }
+
+        if (abbreviateHome && !fishStyle) {
+            modifiers.push('~');
         }
 
         return {
@@ -44,9 +49,10 @@ export class CurrentWorkingDirWidget implements Widget {
 
             // Toggle fish style and clear segments
             if (newFishStyle) {
-                // When enabling fish-style, clear segments
-                const { segments, ...restMetadata } = item.metadata ?? {};
+                // When enabling fish-style, clear segments and abbreviateHome (fish-style already does ~)
+                const { segments, abbreviateHome, ...restMetadata } = item.metadata ?? {};
                 void segments;
+                void abbreviateHome;
                 return {
                     ...item,
                     metadata: {
@@ -66,12 +72,24 @@ export class CurrentWorkingDirWidget implements Widget {
             }
         }
 
+        if (action === 'toggle-abbreviate-home') {
+            const currentAbbreviateHome = item.metadata?.abbreviateHome === 'true';
+            return {
+                ...item,
+                metadata: {
+                    ...item.metadata,
+                    abbreviateHome: (!currentAbbreviateHome).toString()
+                }
+            };
+        }
+
         return null;
     }
 
     render(item: WidgetItem, context: RenderContext, settings: Settings): string | null {
         const segments = item.metadata?.segments ? parseInt(item.metadata.segments, 10) : undefined;
         const fishStyle = item.metadata?.fishStyle === 'true';
+        const abbreviateHome = item.metadata?.abbreviateHome === 'true';
 
         if (context.isPreview) {
             let previewPath: string;
@@ -80,10 +98,12 @@ export class CurrentWorkingDirWidget implements Widget {
                 previewPath = '~/D/P/my-project';
             } else if (segments && segments > 0) {
                 if (segments === 1) {
-                    previewPath = '.../project';
+                    previewPath = abbreviateHome ? '~/.../project' : '.../project';
                 } else {
-                    previewPath = '.../example/project';
+                    previewPath = abbreviateHome ? '~/.../example/project' : '.../example/project';
                 }
+            } else if (abbreviateHome) {
+                previewPath = '~/Documents/Projects/my-project';
             } else {
                 previewPath = '/Users/example/Documents/Projects/my-project';
             }
@@ -97,13 +117,21 @@ export class CurrentWorkingDirWidget implements Widget {
 
         let displayPath = cwd;
 
+        // Replace home directory with ~ if abbreviateHome is enabled (or for fishStyle)
+        if (abbreviateHome || fishStyle) {
+            const homeDir = os.homedir();
+            if (displayPath.startsWith(homeDir)) {
+                displayPath = '~' + displayPath.slice(homeDir.length);
+            }
+        }
+
         if (fishStyle) {
             displayPath = this.abbreviatePath(cwd);
         } else if (segments && segments > 0) {
             // Support both POSIX ('/') and Windows ('\\') separators; preserve original separator in output
-            const useBackslash = cwd.includes('\\') && !cwd.includes('/');
+            const useBackslash = displayPath.includes('\\') && !displayPath.includes('/');
             const outSep = useBackslash ? '\\' : '/';
-            const pathParts = cwd.split(/[\\/]+/);
+            const pathParts = displayPath.split(/[\\/]+/);
 
             // Remove empty strings from splitting (e.g., leading slash or UNC leading separators)
             const filteredParts = pathParts.filter(part => part !== '');
@@ -111,7 +139,9 @@ export class CurrentWorkingDirWidget implements Widget {
             if (filteredParts.length > segments) {
                 // Take the last N segments and join with the detected separator
                 const selectedSegments = filteredParts.slice(-segments);
-                displayPath = '...' + outSep + selectedSegments.join(outSep);
+                // Preserve ~ prefix if abbreviateHome is enabled
+                const prefix = abbreviateHome && displayPath.startsWith('~') ? '~/' : '';
+                displayPath = prefix + '...' + outSep + selectedSegments.join(outSep);
             }
         }
 
@@ -121,7 +151,8 @@ export class CurrentWorkingDirWidget implements Widget {
     getCustomKeybinds(): CustomKeybind[] {
         return [
             { key: 's', label: '(s)egments', action: 'edit-segments' },
-            { key: 'f', label: '(f)ish style', action: 'toggle-fish-style' }
+            { key: 'f', label: '(f)ish style', action: 'toggle-fish-style' },
+            { key: 'h', label: '(h)ome as ~', action: 'toggle-abbreviate-home' }
         ];
     }
 

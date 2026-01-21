@@ -82,8 +82,10 @@ export const PowerlineSeparatorEditor: React.FC<PowerlineSeparatorEditorProps> =
             const inversionText = mode === 'separator' && invertBg ? ' [Inverted]' : '';
             return `${preset.char} - ${preset.name}${inversionText}`;
         }
-        const hexCode = char.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0');
-        return `${char} - Custom (\\u${hexCode})${invertBg ? ' [Inverted]' : ''}`;
+        // Use codePointAt to properly handle characters > U+FFFF (emojis etc.)
+        const codePoint = char.codePointAt(0) ?? 0;
+        const hexCode = codePoint.toString(16).toUpperCase().padStart(4, '0');
+        return `${char} - Custom (U+${hexCode})${invertBg ? ' [Inverted]' : ''}`;
     };
 
     const updateSeparators = (newSeparators: string[], newInvertBgs?: boolean[]) => {
@@ -116,24 +118,30 @@ export const PowerlineSeparatorEditor: React.FC<PowerlineSeparatorEditorProps> =
                 setHexInput('');
                 setCursorPos(0);
             } else if (key.return) {
-                if (hexInput.length === 4) {
-                    const char = String.fromCharCode(parseInt(hexInput, 16));
-                    const newSeparators = [...separators];
-                    if (separators.length === 0) {
-                        // Add new item if list is empty
-                        newSeparators.push(char);
-                    } else {
-                        newSeparators[selectedIndex] = char;
+                // Support 4-6 hex digits for full Unicode range (U+0000 to U+10FFFF)
+                if (hexInput.length >= 4 && hexInput.length <= 6) {
+                    const codePoint = parseInt(hexInput, 16);
+                    // Validate it's a valid Unicode code point
+                    if (codePoint >= 0 && codePoint <= 0x10FFFF) {
+                        // Use String.fromCodePoint to properly handle code points > 0xFFFF (emojis etc.)
+                        const char = String.fromCodePoint(codePoint);
+                        const newSeparators = [...separators];
+                        if (separators.length === 0) {
+                            // Add new item if list is empty
+                            newSeparators.push(char);
+                        } else {
+                            newSeparators[selectedIndex] = char;
+                        }
+                        updateSeparators(newSeparators);
+                        setHexInputMode(false);
+                        setHexInput('');
+                        setCursorPos(0);
                     }
-                    updateSeparators(newSeparators);
-                    setHexInputMode(false);
-                    setHexInput('');
-                    setCursorPos(0);
                 }
             } else if (key.backspace && cursorPos > 0) {
                 setHexInput(hexInput.slice(0, cursorPos - 1) + hexInput.slice(cursorPos));
                 setCursorPos(cursorPos - 1);
-            } else if (input && /[0-9a-fA-F]/.test(input) && hexInput.length < 4) {
+            } else if (input && /[0-9a-fA-F]/.test(input) && hexInput.length < 6) {
                 setHexInput(hexInput.slice(0, cursorPos) + input.toUpperCase() + hexInput.slice(cursorPos));
                 setCursorPos(cursorPos + 1);
             }
@@ -275,20 +283,21 @@ export const PowerlineSeparatorEditor: React.FC<PowerlineSeparatorEditorProps> =
             {hexInputMode ? (
                 <Box marginTop={2} flexDirection='column'>
                     <Text>
-                        Enter 4-digit hex code for
+                        Enter hex code (4-6 digits) for
                         {' '}
                         {mode === 'separator' ? 'separator' : 'cap'}
                         {separators.length > 0 ? ` ${selectedIndex + 1}` : ''}
                         :
                     </Text>
                     <Text>
-                        \u
+                        U+
                         {hexInput.slice(0, cursorPos)}
                         <Text backgroundColor='gray' color='black'>{hexInput[cursorPos] ?? '_'}</Text>
                         {hexInput.slice(cursorPos + 1)}
                         {hexInput.length < 4 && hexInput.length === cursorPos && <Text dimColor>{'_'.repeat(4 - hexInput.length - 1)}</Text>}
                     </Text>
-                    <Text dimColor>Enter 4 hex digits (0-9, A-F), then press Enter. ESC to cancel.</Text>
+                    <Text dimColor>Enter 4-6 hex digits (0-9, A-F) for Unicode code point, then press Enter. ESC to cancel.</Text>
+                    <Text dimColor>Examples: E0B0 (powerline), 1F984 (🦄), 2764 (❤)</Text>
                 </Box>
             ) : (
                 <>

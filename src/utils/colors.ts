@@ -132,31 +132,36 @@ export function applyColors(
         return text;
     }
 
-    let result = text;
+    // Use raw ANSI codes for more precise control over reset sequences
+    // This prevents bold from affecting subsequent widgets' colors
+    let prefix = '';
+    let suffix = '';
 
-    // Apply background color first
-    // This ensures the background is properly established before other styles
-    if (backgroundColor) {
-        const bgChalk = getChalkColor(backgroundColor, colorLevel, true);
-        if (bgChalk) {
-            result = bgChalk(result);
-        }
-    }
-
-    // Apply foreground color second
-    if (foregroundColor) {
-        const fgChalk = getChalkColor(foregroundColor, colorLevel, false);
-        if (fgChalk) {
-            result = fgChalk(result);
-        }
-    }
-
-    // Apply bold last if needed
+    // Apply bold first (so it can be reset independently)
     if (bold) {
-        result = chalk.bold(result);
+        prefix += '\x1b[1m';
+        suffix = '\x1b[22m' + suffix; // Reset bold before other resets
     }
 
-    return result;
+    // Apply background color
+    if (backgroundColor) {
+        const bgCode = getColorAnsiCode(backgroundColor, colorLevel, true);
+        if (bgCode) {
+            prefix += bgCode;
+            suffix = '\x1b[49m' + suffix; // Reset background
+        }
+    }
+
+    // Apply foreground color
+    if (foregroundColor) {
+        const fgCode = getColorAnsiCode(foregroundColor, colorLevel, false);
+        if (fgCode) {
+            prefix += fgCode;
+            suffix = '\x1b[39m' + suffix; // Reset foreground
+        }
+    }
+
+    return prefix + text + suffix;
 }
 
 // Get raw ANSI codes for a color without the reset codes

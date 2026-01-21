@@ -16,10 +16,36 @@ const readFile = promisify(fs.readFile);
 const readFileSync = fs.readFileSync;
 const statSync = fs.statSync;
 
+// Cache for token metrics to avoid re-parsing on every status line render
+interface TokenMetricsCache {
+    path: string;
+    mtime: number;
+    metrics: TokenMetrics;
+}
+
+interface SessionDurationCache {
+    path: string;
+    mtime: number;
+    duration: string | null;
+}
+
+let tokenMetricsCache: TokenMetricsCache | null = null;
+let sessionDurationCache: SessionDurationCache | null = null;
+
 export async function getSessionDuration(transcriptPath: string): Promise<string | null> {
     try {
         if (!fs.existsSync(transcriptPath)) {
             return null;
+        }
+
+        // Check cache - only re-parse if file has been modified
+        const stats = statSync(transcriptPath);
+        const mtime = stats.mtimeMs;
+
+        if (sessionDurationCache
+            && sessionDurationCache.path === transcriptPath
+            && sessionDurationCache.mtime === mtime) {
+            return sessionDurationCache.duration;
         }
 
         const content = await readFile(transcriptPath, 'utf-8');
@@ -59,6 +85,7 @@ export async function getSessionDuration(transcriptPath: string): Promise<string
         }
 
         if (!firstTimestamp || !lastTimestamp) {
+            sessionDurationCache = { path: transcriptPath, mtime, duration: null };
             return null;
         }
 
@@ -68,30 +95,47 @@ export async function getSessionDuration(transcriptPath: string): Promise<string
         // Convert to minutes
         const totalMinutes = Math.floor(durationMs / (1000 * 60));
 
+        let result: string;
         if (totalMinutes < 1) {
-            return '<1m';
-        }
-
-        const hours = Math.floor(totalMinutes / 60);
-        const minutes = totalMinutes % 60;
-
-        if (hours === 0) {
-            return `${minutes}m`;
-        } else if (minutes === 0) {
-            return `${hours}hr`;
+            result = '<1m';
         } else {
-            return `${hours}hr ${minutes}m`;
+            const hours = Math.floor(totalMinutes / 60);
+            const minutes = totalMinutes % 60;
+
+            if (hours === 0) {
+                result = `${minutes}m`;
+            } else if (minutes === 0) {
+                result = `${hours}hr`;
+            } else {
+                result = `${hours}hr ${minutes}m`;
+            }
         }
+
+        // Cache the result
+        sessionDurationCache = { path: transcriptPath, mtime, duration: result };
+        return result;
     } catch {
         return null;
     }
 }
 
 export async function getTokenMetrics(transcriptPath: string): Promise<TokenMetrics> {
+    const emptyMetrics: TokenMetrics = { inputTokens: 0, outputTokens: 0, cachedTokens: 0, totalTokens: 0, contextLength: 0 };
+
     try {
         // Use Node.js-compatible file reading
         if (!fs.existsSync(transcriptPath)) {
-            return { inputTokens: 0, outputTokens: 0, cachedTokens: 0, totalTokens: 0, contextLength: 0 };
+            return emptyMetrics;
+        }
+
+        // Check cache - only re-parse if file has been modified
+        const stats = statSync(transcriptPath);
+        const mtime = stats.mtimeMs;
+
+        if (tokenMetricsCache
+            && tokenMetricsCache.path === transcriptPath
+            && tokenMetricsCache.mtime === mtime) {
+            return tokenMetricsCache.metrics;
         }
 
         const content = await readFile(transcriptPath, 'utf-8');
@@ -140,9 +184,13 @@ export async function getTokenMetrics(transcriptPath: string): Promise<TokenMetr
 
         const totalTokens = inputTokens + outputTokens + cachedTokens;
 
-        return { inputTokens, outputTokens, cachedTokens, totalTokens, contextLength };
+        const metrics: TokenMetrics = { inputTokens, outputTokens, cachedTokens, totalTokens, contextLength };
+
+        // Cache the result
+        tokenMetricsCache = { path: transcriptPath, mtime, metrics };
+        return metrics;
     } catch {
-        return { inputTokens: 0, outputTokens: 0, cachedTokens: 0, totalTokens: 0, contextLength: 0 };
+        return emptyMetrics;
     }
 }
 
